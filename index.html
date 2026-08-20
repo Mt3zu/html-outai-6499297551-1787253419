@@ -1,0 +1,556 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>مساعدي الذكي</title>
+<style>
+  :root{
+    --bg:#0f0f10;
+    --bg-side:#171718;
+    --bg-msg-user:#2f2f31;
+    --bg-msg-bot:#171718;
+    --border:#2a2a2c;
+    --text:#e9e9ea;
+    --text-dim:#9a9a9d;
+    --accent:#10a37f;
+    --accent-hover:#0d8c6d;
+  }
+  *{box-sizing:border-box; margin:0; padding:0;}
+  html,body{height:100%;}
+  body{
+    font-family:'Segoe UI', Tahoma, Arial, sans-serif;
+    background:var(--bg);
+    color:var(--text);
+    display:flex;
+    overflow:hidden;
+  }
+  /* الشريط الجانبي */
+  #sidebar{
+    width:260px;
+    background:var(--bg-side);
+    border-left:1px solid var(--border);
+    display:flex;
+    flex-direction:column;
+    padding:10px;
+    flex-shrink:0;
+    transition:margin-right .2s ease;
+  }
+  #sidebar.hidden{ margin-right:-260px; }
+  .new-chat-btn{
+    display:flex;
+    align-items:center;
+    gap:8px;
+    padding:12px;
+    border:1px solid var(--border);
+    border-radius:8px;
+    color:var(--text);
+    background:transparent;
+    cursor:pointer;
+    font-size:14px;
+    transition:background .15s;
+  }
+  .new-chat-btn:hover{ background:#232324; }
+  #history{
+    margin-top:14px;
+    flex:1;
+    overflow-y:auto;
+  }
+  .history-item{
+    padding:10px 12px;
+    border-radius:8px;
+    font-size:13px;
+    color:var(--text-dim);
+    cursor:pointer;
+    white-space:nowrap;
+    overflow:hidden;
+    text-overflow:ellipsis;
+    margin-bottom:2px;
+  }
+  .history-item:hover, .history-item.active{
+    background:#232324;
+    color:var(--text);
+  }
+  .sidebar-footer{
+    border-top:1px solid var(--border);
+    padding-top:10px;
+    font-size:12px;
+    color:var(--text-dim);
+    text-align:center;
+  }
+
+  /* المنطقة الرئيسية */
+  #main{
+    flex:1;
+    display:flex;
+    flex-direction:column;
+    height:100%;
+    position:relative;
+  }
+  #topbar{
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:10px 16px;
+    border-bottom:1px solid var(--border);
+  }
+  #toggleSidebar{
+    background:none;
+    border:none;
+    color:var(--text);
+    font-size:20px;
+    cursor:pointer;
+    padding:6px 10px;
+    border-radius:6px;
+  }
+  #toggleSidebar:hover{ background:#232324; }
+  #topbar h1{
+    font-size:15px;
+    font-weight:600;
+    color:var(--text-dim);
+  }
+
+  #chatWindow{
+    flex:1;
+    overflow-y:auto;
+    padding:20px 0 10px;
+  }
+  .msg-row{
+    display:flex;
+    padding:18px 15%;
+    gap:14px;
+    animation:fadeIn .25s ease;
+  }
+  @media (max-width:900px){
+    .msg-row{ padding:16px 5%; }
+  }
+  @keyframes fadeIn{
+    from{opacity:0; transform:translateY(6px);}
+    to{opacity:1; transform:translateY(0);}
+  }
+  .msg-row.user{ background:var(--bg-msg-user); }
+  .msg-row.bot{ background:var(--bg-msg-bot); }
+  .avatar{
+    width:30px; height:30px;
+    border-radius:6px;
+    flex-shrink:0;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    font-size:15px;
+    font-weight:bold;
+  }
+  .avatar.user{ background:#5c5c60; }
+  .avatar.bot{ background:var(--accent); }
+  .msg-content{
+    flex:1;
+    line-height:1.8;
+    font-size:15px;
+    white-space:pre-wrap;
+    word-wrap:break-word;
+    padding-top:3px;
+  }
+  .typing{
+    display:inline-flex;
+    gap:4px;
+    padding-top:6px;
+  }
+  .typing span{
+    width:7px; height:7px;
+    background:var(--text-dim);
+    border-radius:50%;
+    animation:blink 1.2s infinite ease-in-out;
+  }
+  .typing span:nth-child(2){ animation-delay:.2s; }
+  .typing span:nth-child(3){ animation-delay:.4s; }
+  @keyframes blink{
+    0%,80%,100%{opacity:.25;}
+    40%{opacity:1;}
+  }
+
+  #welcome{
+    height:100%;
+    display:flex;
+    flex-direction:column;
+    align-items:center;
+    justify-content:center;
+    text-align:center;
+    color:var(--text-dim);
+    gap:14px;
+    padding:0 20px;
+  }
+  #welcome h2{ color:var(--text); font-size:26px; }
+  .suggestions{
+    display:grid;
+    grid-template-columns:1fr 1fr;
+    gap:10px;
+    margin-top:20px;
+    max-width:600px;
+    width:100%;
+  }
+  @media (max-width:600px){ .suggestions{ grid-template-columns:1fr; } }
+  .suggestion-card{
+    border:1px solid var(--border);
+    border-radius:10px;
+    padding:12px 14px;
+    font-size:13px;
+    cursor:pointer;
+    text-align:right;
+    transition:background .15s;
+  }
+  .suggestion-card:hover{ background:#232324; }
+
+  #inputArea{
+    padding:14px 15%;
+    border-top:1px solid var(--border);
+  }
+  @media (max-width:900px){ #inputArea{ padding:14px 4%; } }
+  .input-box{
+    display:flex;
+    align-items:flex-end;
+    gap:8px;
+    background:var(--bg-msg-user);
+    border:1px solid var(--border);
+    border-radius:16px;
+    padding:10px 12px;
+  }
+  #userInput{
+    flex:1;
+    background:transparent;
+    border:none;
+    outline:none;
+    color:var(--text);
+    font-size:15px;
+    resize:none;
+    max-height:180px;
+    font-family:inherit;
+    line-height:1.5;
+  }
+  #sendBtn{
+    background:var(--accent);
+    border:none;
+    color:#fff;
+    width:34px; height:34px;
+    border-radius:10px;
+    cursor:pointer;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    flex-shrink:0;
+    transition:background .15s;
+  }
+  #sendBtn:hover{ background:var(--accent-hover); }
+  #sendBtn:disabled{ background:#3a3a3c; cursor:not-allowed; }
+  .disclaimer{
+    text-align:center;
+    font-size:11px;
+    color:var(--text-dim);
+    margin-top:8px;
+  }
+
+  ::-webkit-scrollbar{ width:8px; }
+  ::-webkit-scrollbar-thumb{ background:#333335; border-radius:4px; }
+  ::-webkit-scrollbar-track{ background:transparent; }
+</style>
+</head>
+<body>
+
+<div id="sidebar">
+  <button class="new-chat-btn" onclick="newChat()">
+    <span>＋</span><span>محادثة جديدة</span>
+  </button>
+  <div id="history"></div>
+  <div class="sidebar-footer">مساعد محلي — بدون اتصال إنترنت</div>
+</div>
+
+<div id="main">
+  <div id="topbar">
+    <button id="toggleSidebar" onclick="toggleSidebar()">☰</button>
+    <h1>مساعدي الذكي</h1>
+    <div style="width:32px"></div>
+  </div>
+
+  <div id="chatWindow">
+    <div id="welcome">
+      <h2>👋 أهلاً بك</h2>
+      <p>اسألني أي شيء، أو جرّب أحد الاقتراحات:</p>
+      <div class="suggestions">
+        <div class="suggestion-card" onclick="quickSend('كم الساعة الآن؟')">🕐 كم الساعة الآن؟</div>
+        <div class="suggestion-card" onclick="quickSend('احسب 25 * 4 + 10')">🧮 احسب 25 * 4 + 10</div>
+        <div class="suggestion-card" onclick="quickSend('من أنت؟')">🤖 من أنت؟</div>
+        <div class="suggestion-card" onclick="quickSend('أخبرني نكتة')">😄 أخبرني نكتة</div>
+      </div>
+    </div>
+  </div>
+
+  <div id="inputArea">
+    <div class="input-box">
+      <textarea id="userInput" rows="1" placeholder="اكتب رسالتك هنا..." onkeydown="handleKey(event)" oninput="autoGrow(this)"></textarea>
+      <button id="sendBtn" onclick="sendMessage()">↑</button>
+    </div>
+    <div class="disclaimer">هذا شات بوت محلي بسيط يعمل بالكامل داخل المتصفح دون أي اتصال بالإنترنت أو API خارجي.</div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   محرك "ذكاء اصطناعي" محلي بسيط قائم على القواعد وأنماط النص
+   لا يوجد أي اتصال بالإنترنت أو API — كل شيء يعمل في المتصفح
+   ============================================================ */
+
+let chats = {};          // { id: {title, messages:[{role,text}]} }
+let currentChatId = null;
+
+function uid(){ return 'c' + Date.now() + Math.random().toString(36).slice(2,7); }
+
+function newChat(){
+  const id = uid();
+  chats[id] = { title: 'محادثة جديدة', messages: [] };
+  currentChatId = id;
+  renderHistory();
+  renderChatWindow();
+}
+
+function toggleSidebar(){
+  document.getElementById('sidebar').classList.toggle('hidden');
+}
+
+function autoGrow(el){
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 180) + 'px';
+}
+
+function handleKey(e){
+  if(e.key === 'Enter' && !e.shiftKey){
+    e.preventDefault();
+    sendMessage();
+  }
+}
+
+function quickSend(text){
+  document.getElementById('userInput').value = text;
+  sendMessage();
+}
+
+function renderHistory(){
+  const box = document.getElementById('history');
+  box.innerHTML = '';
+  Object.keys(chats).reverse().forEach(id=>{
+    const div = document.createElement('div');
+    div.className = 'history-item' + (id===currentChatId ? ' active':'');
+    div.textContent = chats[id].title;
+    div.onclick = ()=>{ currentChatId = id; renderHistory(); renderChatWindow(); };
+    box.appendChild(div);
+  });
+}
+
+function renderChatWindow(){
+  const win = document.getElementById('chatWindow');
+  win.innerHTML = '';
+  const chat = chats[currentChatId];
+  if(!chat || chat.messages.length === 0){
+    win.innerHTML = `
+      <div id="welcome">
+        <h2>👋 أهلاً بك</h2>
+        <p>اسألني أي شيء، أو جرّب أحد الاقتراحات:</p>
+        <div class="suggestions">
+          <div class="suggestion-card" onclick="quickSend('كم الساعة الآن؟')">🕐 كم الساعة الآن؟</div>
+          <div class="suggestion-card" onclick="quickSend('احسب 25 * 4 + 10')">🧮 احسب 25 * 4 + 10</div>
+          <div class="suggestion-card" onclick="quickSend('من أنت؟')">🤖 من أنت؟</div>
+          <div class="suggestion-card" onclick="quickSend('أخبرني نكتة')">😄 أخبرني نكتة</div>
+        </div>
+      </div>`;
+    return;
+  }
+  chat.messages.forEach(m=> appendMessageDOM(m.role, m.text, false));
+  win.scrollTop = win.scrollHeight;
+}
+
+function appendMessageDOM(role, text, scroll=true){
+  const win = document.getElementById('chatWindow');
+  const welcome = document.getElementById('welcome');
+  if(welcome) welcome.remove();
+
+  const row = document.createElement('div');
+  row.className = 'msg-row ' + role;
+
+  const avatar = document.createElement('div');
+  avatar.className = 'avatar ' + role;
+  avatar.textContent = role === 'user' ? 'أنت' : 'AI';
+
+  const content = document.createElement('div');
+  content.className = 'msg-content';
+  content.textContent = text;
+
+  row.appendChild(avatar);
+  row.appendChild(content);
+  win.appendChild(row);
+
+  if(scroll) win.scrollTop = win.scrollHeight;
+  return content;
+}
+
+function sendMessage(){
+  const input = document.getElementById('userInput');
+  const text = input.value.trim();
+  if(!text) return;
+
+  if(!currentChatId) newChat();
+  const chat = chats[currentChatId];
+
+  chat.messages.push({role:'user', text});
+  if(chat.messages.length === 1){
+    chat.title = text.slice(0,28) + (text.length>28?'...':'');
+    renderHistory();
+  }
+
+  appendMessageDOM('user', text);
+  input.value = '';
+  input.style.height = 'auto';
+
+  document.getElementById('sendBtn').disabled = true;
+
+  // فقاعة الكتابة
+  const win = document.getElementById('chatWindow');
+  const row = document.createElement('div');
+  row.className = 'msg-row bot';
+  row.innerHTML = `<div class="avatar bot">AI</div>
+    <div class="msg-content"><div class="typing"><span></span><span></span><span></span></div></div>`;
+  win.appendChild(row);
+  win.scrollTop = win.scrollHeight;
+
+  const delay = 500 + Math.random()*700;
+  setTimeout(()=>{
+    row.remove();
+    const reply = generateReply(text);
+    chat.messages.push({role:'bot', text: reply});
+    typeOut(reply);
+    document.getElementById('sendBtn').disabled = false;
+  }, delay);
+}
+
+// تأثير الكتابة التدريجية
+function typeOut(fullText){
+  const content = appendMessageDOM('bot', '');
+  let i = 0;
+  const win = document.getElementById('chatWindow');
+  const speed = fullText.length > 200 ? 6 : 18;
+  const interval = setInterval(()=>{
+    content.textContent += fullText[i];
+    i++;
+    win.scrollTop = win.scrollHeight;
+    if(i >= fullText.length) clearInterval(interval);
+  }, speed);
+}
+
+/* ============================================================
+   منطق توليد الردود — قواعد + تعرف على الأنماط + حاسبة رياضية
+   ============================================================ */
+
+const jokes = [
+  'ليه الكمبيوتر راح للدكتور؟ عشان كان عنده فيروس! 😄',
+  'واحد سأل صديقه: ليه بتاخد لابتوبك للنوم؟ قال: عشان مش عايزه يحلم من غيري 💻',
+  'ليه المبرمج لبس نظارتين؟ عشان شاف C شارب! 🤓',
+  'الذكاء الاصطناعي ما بيتعب... بس بيحتاج تحديثات كتير 😅'
+];
+
+const aboutMe = [
+  'أنا مساعد ذكاء اصطناعي محلي بسيط، مبني بالكامل بلغة JavaScript ويعمل داخل متصفحك مباشرة دون أي اتصال بالإنترنت أو أي API خارجي.',
+  'أنا شات بوت تجريبي تم إنشاؤه ليحاكي واجهة تشبه ChatGPT، لكن ردودي مبنية على قواعد بسيطة وليست نموذج ذكاء اصطناعي حقيقي ضخم.'
+];
+
+function safeCalc(expr){
+  // السماح فقط بالأرقام والعمليات الأساسية لأسباب أمنية
+  if(!/^[0-9+\-*/().\s%^]+$/.test(expr)) return null;
+  try{
+    const safeExpr = expr.replace(/\^/g, '**');
+    // eslint-disable-next-line no-new-func
+    const result = Function('"use strict"; return (' + safeExpr + ')')();
+    if(typeof result === 'number' && isFinite(result)) return result;
+    return null;
+  }catch(e){ return null; }
+}
+
+function generateReply(rawText){
+  const text = rawText.trim();
+  const lower = text.toLowerCase();
+
+  // تحية
+  if(/^(سلام|السلام عليكم|هاي|هلا|مرحبا|hello|hi)\b/.test(lower)){
+    return 'أهلاً وسهلاً بك! 😊 كيف أقدر أساعدك اليوم؟';
+  }
+
+  // من أنت
+  if(lower.includes('من انت') || lower.includes('من أنت') || lower.includes('what are you')){
+    return aboutMe[Math.floor(Math.random()*aboutMe.length)];
+  }
+
+  // الوقت
+  if(lower.includes('الساعة') || lower.includes('كم الوقت') || lower.includes('time now')){
+    const now = new Date();
+    return 'الساعة الآن (حسب جهازك) هي: ' + now.toLocaleTimeString('ar-EG');
+  }
+
+  // التاريخ
+  if(lower.includes('التاريخ') || lower.includes('اليوم كام') || lower.includes('اي يوم')){
+    const now = new Date();
+    return 'تاريخ اليوم هو: ' + now.toLocaleDateString('ar-EG', {weekday:'long', year:'numeric', month:'long', day:'numeric'});
+  }
+
+  // نكتة
+  if(lower.includes('نكت') || lower.includes('joke')){
+    return jokes[Math.floor(Math.random()*jokes.length)];
+  }
+
+  // شكر
+  if(lower.includes('شكرا') || lower.includes('شكراً') || lower.includes('thank')){
+    return 'العفو! 🌟 يسعدني دايمًا مساعدتك.';
+  }
+
+  // حاسبة: يحاول ياخد أي تعبير رياضي من الجملة
+  if(/احسب|calculate|كم ناتج|=\?|[0-9]\s*[+\-*/^]\s*[0-9]/.test(text)){
+    const match = text.match(/[0-9+\-*/().\s%^]{3,}/);
+    if(match){
+      const result = safeCalc(match[0]);
+      if(result !== null){
+        return `الناتج هو: ${result}`;
+      }
+    }
+    return 'اكتب لي تعبيرًا رياضيًا واضحًا مثل: 25 * 4 + 10 وسأحسبه لك فورًا.';
+  }
+
+  // اسم المستخدم
+  const nameMatch = text.match(/اسمي\s+([\u0621-\u064Aa-zA-Z]+)/);
+  if(nameMatch){
+    return `تشرفت بمعرفتك يا ${nameMatch[1]}! 😊 كيف أقدر أساعدك؟`;
+  }
+
+  // كيف حالك
+  if(lower.includes('كيف حالك') || lower.includes('عامل ايه') || lower.includes('how are you')){
+    return 'أنا بخير، شكرًا لسؤالك! أنا هنا وجاهز لمساعدتك في أي وقت. وأنت كيف حالك؟';
+  }
+
+  // وداع
+  if(lower.includes('باي') || lower.includes('مع السلامة') || lower.includes('bye')){
+    return 'إلى اللقاء! 👋 لا تتردد بالعودة إذا احتجت أي مساعدة.';
+  }
+
+  // مساعدة عامة
+  if(lower.includes('مساعدة') || lower.includes('help') || lower.includes('ماذا تستطيع')){
+    return 'أستطيع الدردشة معك، الإجابة على أسئلة بسيطة، حساب العمليات الرياضية، إخبارك بالوقت والتاريخ، وسرد بعض النكات. جرّبني! 🙂';
+  }
+
+  // رد افتراضي ذكي الشكل (Echo + تحليل بسيط)
+  const fallback = [
+    `فهمت أنك تتحدث عن: "${text}"، لكنني شات بوت محلي بسيط وقدراتي محدودة على الردود المعقدة. هل يمكنك إعادة صياغة سؤالك بشكل أبسط؟`,
+    `هذا سؤال مثير للاهتمام حول "${text}"، لكن كوني نموذجًا بسيطًا يعمل بدون اتصال، لا أملك معلومات كافية للإجابة بدقة. جرّب سؤالًا آخر!`,
+    `لا أملك حاليًا معلومات كافية عن "${text}" لأنني أعمل محليًا بدون اتصال بالإنترنت أو قاعدة بيانات ضخمة. هل تحب تسألني شيئًا آخر؟`
+  ];
+  return fallback[Math.floor(Math.random()*fallback.length)];
+}
+
+// بدء أول محادثة تلقائيًا
+newChat();
+</script>
+</body>
+</html>
